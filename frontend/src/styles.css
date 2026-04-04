@@ -627,9 +627,11 @@ ul { margin: 0; padding-left: 18px; }
   font-size: 0.82rem;
 }
 
+.stats-row-3 { grid-template-columns: repeat(3, 1fr); }
+
 @media (max-width: 1240px) {
   .dashboard-main-grid, .entrada-grid, .entrada-grid.wide, .insight-grid, .time-layout, .quick-actions, .stats-row,
-  .dashboard-hero-grid, .dashboard-secondary-grid, .comp-radar-row {
+  .stats-row-3, .dashboard-hero-grid, .dashboard-secondary-grid, .comp-radar-row {
     grid-template-columns: 1fr;
   }
 }

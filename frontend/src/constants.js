@@ -86,8 +86,7 @@ export const RADAR_METRICS = [
 ];
 
 export const COMP_METRICS = [
-  "score_desempenho", "score_disciplina", "score_titularidade",
-  "score_uso_recente", "score_momento", "rank_titularidade_posicao", "rank_momento_posicao",
+  "score_desempenho", "score_disciplina", "score_titularidade", "score_momento",
 ];
 
 export const EVOLUCAO_METRICAS = {

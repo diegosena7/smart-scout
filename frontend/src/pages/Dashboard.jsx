@@ -34,7 +34,7 @@ export default function Dashboard({ dashboard, timeIdeal, formacaoAtual, onNavig
         </div>
       </section>
 
-      <section className="stats-row">
+      <section className="stats-row stats-row-3">
         <article className="stat-card">
           <span className="stat-label">Jogadores ativos</span>
           <strong className="stat-val">{cards.jogadores_ativos || 0}</strong>
@@ -49,11 +49,6 @@ export default function Dashboard({ dashboard, timeIdeal, formacaoAtual, onNavig
           <span className="stat-label">Atuacoes lancadas</span>
           <strong className="stat-val">{cards.atuacoes_lancadas || 0}</strong>
           <small className="stat-sub">Rotina alimentada</small>
-        </article>
-        <article className="stat-card">
-          <span className="stat-label">Modo analitico</span>
-          <strong className="stat-val stat-accent">{cards.modo_analitico || "-"}</strong>
-          <small className="stat-sub">Fonte de consolidacao</small>
         </article>
       </section>
 
@@ -72,28 +67,16 @@ export default function Dashboard({ dashboard, timeIdeal, formacaoAtual, onNavig
         </button>
       </section>
 
-      <section className="dashboard-secondary-grid">
-        <article className="card">
-          <div className="card-header"><span className="card-title">Disputas por posicao</span></div>
-          <div className="card-body">
-            <DataTable
-              rows={dashboard?.disputas_posicao || []}
-              preferredOrder={["jogador", "posicao", "score_titularidade", "rank_titularidade_posicao"]}
-              dense
-            />
-          </div>
-        </article>
-        <article className="card">
-          <div className="card-header"><span className="card-title">Ultimos lancamentos</span></div>
-          <div className="card-body">
-            <DataTable
-              rows={dashboard?.ultimas_atuacoes || []}
-              preferredOrder={["partida_id", "jogador", "posicao_jogo", "minutos_jogados", "gols", "assistencias"]}
-              dense
-            />
-          </div>
-        </article>
-      </section>
+      <article className="card">
+        <div className="card-header"><span className="card-title">Ultimos lancamentos</span></div>
+        <div className="card-body">
+          <DataTable
+            rows={dashboard?.ultimas_atuacoes || []}
+            preferredOrder={["jogador", "posicao_jogo", "minutos_jogados", "gols", "assistencias"]}
+            dense
+          />
+        </div>
+      </article>
     </div>
   );
 }

@@ -109,15 +109,20 @@ function App() {
     }
   }
 
+  async function refreshAnalise(posicao) {
+    await Promise.all([loadBase(), loadAnalise(posicao)]);
+  }
+
   useEffect(() => { bootstrap().catch((err) => { setFeedback(err.message); setLoading(false); }); }, []);
   useEffect(() => { if (jogadorA && jogadorB) loadComparacao(jogadorA, jogadorB).catch((err) => setFeedback(err.message)); }, [jogadorA, jogadorB]);
   useEffect(() => { loadTimeIdeal(formacaoAtual).catch((err) => setFeedback(err.message)); }, [formacaoAtual]);
+  useEffect(() => { setFeedback(""); }, [activeTab]);
 
   async function submitJogador(e) {
     e.preventDefault();
     try {
       const data = await api.createJogador(jogadorForm);
-      setFeedback(data.mensagem);
+      showToast(data.mensagem);
       setJogadorForm({ ...emptyJogador, posicao: posicoesDisponiveis[0], funcao: funcoesDisponiveis[0], pe_dominante: pesDisponiveis[0] });
       await bootstrap();
       setActiveTab("dashboard");
@@ -128,7 +133,7 @@ function App() {
     e.preventDefault();
     try {
       const data = await api.createPartida(partidaForm);
-      setFeedback(`${data.mensagem} ID gerado: ${data.partida_id}`);
+      showToast(data.mensagem);
       setPartidaForm({ ...emptyPartida, resultado: resultadosDisponiveis[0], formacao: formacoesDisponiveis[0] });
       await bootstrap();
       setEntryTab("atuacoes");
@@ -240,9 +245,10 @@ function App() {
           {activeTab === "analise" && (
             <AnaliseElenco
               analise={analise} atuacoes={atuacoes} partidas={partidas}
+              jogadores={jogadores}
               posicoesDisponiveis={posicoesDisponiveis}
               filtroPosicao={filtroPosicao} setFiltroPosicao={setFiltroPosicao}
-              loadAnalise={loadAnalise} setFeedback={setFeedback}
+              loadAnalise={refreshAnalise} setFeedback={setFeedback}
             />
           )}
           {activeTab === "comparacao" && (
