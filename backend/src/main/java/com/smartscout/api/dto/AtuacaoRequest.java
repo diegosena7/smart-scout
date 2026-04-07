@@ -1,6 +1,8 @@
 package com.smartscout.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import lombok.Data;
 
 @Data
@@ -11,6 +13,11 @@ public class AtuacaoRequest {
     private String jogadorId;
     private String jogador = "";
     private String posicaoJogo = "";
+    private String presenca = "JOGOU";
+
+    @Min(1) @Max(5)
+    private Integer notaTecnico = null;
+
     private int minutosJogados = 0;
     private int gols = 0;
     private int assistencias = 0;

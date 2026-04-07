@@ -2,11 +2,11 @@ import PitchView from "../components/PitchView";
 import PlayerRows from "../components/PlayerRows";
 import DataTable from "../components/DataTable";
 
-export default function Dashboard({ dashboard, timeIdeal, formacaoAtual, onNavigate }) {
+export default function Dashboard({ dashboard, timeIdeal, banco, formacaoAtual, setFormacaoAtual, formacoesDisponiveis, onNavigate }) {
   const cards = dashboard?.cards || {};
   return (
     <div className="page-content">
-      <section className="hero-panel hero-panel-compact">
+<section className="hero-panel hero-panel-compact">
         <div>
           <span className="panel-kicker">Visao geral do elenco</span>
           <h2>Leitura operacional para decisao tecnica.</h2>
@@ -18,7 +18,14 @@ export default function Dashboard({ dashboard, timeIdeal, formacaoAtual, onNavig
       </section>
 
       <section className="dashboard-hero-grid">
-        <PitchView items={timeIdeal} formacao={formacaoAtual} compact />
+        <PitchView
+          items={timeIdeal}
+          banco={banco}
+          formacao={formacaoAtual}
+          compact
+          onFormacaoChange={setFormacaoAtual}
+          formacoesDisponiveis={formacoesDisponiveis}
+        />
         <div className="dashboard-side-stack">
           <article className="card">
             <div className="card-header spaced">
@@ -49,6 +56,43 @@ export default function Dashboard({ dashboard, timeIdeal, formacaoAtual, onNavig
           <span className="stat-label">Atuacoes lancadas</span>
           <strong className="stat-val">{cards.atuacoes_lancadas || 0}</strong>
           <small className="stat-sub">Rotina alimentada</small>
+        </article>
+      </section>
+
+      <section className="dashboard-secondary-grid">
+        <article className="card">
+          <div className="card-header"><span className="card-title">Artilharia</span></div>
+          <div className="card-body">
+            {(dashboard?.artilharia || []).length === 0
+              ? <div className="empty-state">Nenhum gol registrado ainda.</div>
+              : <ol className="ranking-list">
+                  {(dashboard?.artilharia || []).map((row, i) => (
+                    <li key={row.jogador} className="ranking-item">
+                      <span className="ranking-pos">{i + 1}</span>
+                      <span className="ranking-name">{row.jogador}</span>
+                      <span className="ranking-val">{row.gols} gol{row.gols !== 1 ? "s" : ""}</span>
+                    </li>
+                  ))}
+                </ol>
+            }
+          </div>
+        </article>
+        <article className="card">
+          <div className="card-header"><span className="card-title">Garcom</span></div>
+          <div className="card-body">
+            {(dashboard?.garcom || []).length === 0
+              ? <div className="empty-state">Nenhuma assistencia registrada ainda.</div>
+              : <ol className="ranking-list">
+                  {(dashboard?.garcom || []).map((row, i) => (
+                    <li key={row.jogador} className="ranking-item">
+                      <span className="ranking-pos">{i + 1}</span>
+                      <span className="ranking-name">{row.jogador}</span>
+                      <span className="ranking-val">{row.assistencias} assist.</span>
+                    </li>
+                  ))}
+                </ol>
+            }
+          </div>
         </article>
       </section>
 

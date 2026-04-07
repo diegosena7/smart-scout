@@ -41,4 +41,23 @@ public class JogadorController {
         result.putAll(relatorio.contexto());
         return result;
     }
+
+    @PutMapping("/{id}")
+    public Map<String, Object> atualizar(@PathVariable String id, @Valid @RequestBody JogadorRequest req) {
+        jogadorService.atualizar(id, req);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("mensagem", "Jogador atualizado com sucesso.");
+        result.put("avisos", List.of());
+        result.putAll(relatorio.contexto());
+        return result;
+    }
+
+    @DeleteMapping("/{id}")
+    public Map<String, Object> deletar(@PathVariable String id) {
+        jogadorService.deletar(id);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("mensagem", "Jogador deletado com sucesso.");
+        result.putAll(relatorio.contexto());
+        return result;
+    }
 }

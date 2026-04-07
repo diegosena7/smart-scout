@@ -7,6 +7,8 @@ import com.smartscout.api.entity.Partida;
 import com.smartscout.api.repository.AtuacaoRepository;
 import com.smartscout.api.repository.JogadorRepository;
 import com.smartscout.api.repository.PartidaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 @Service
 public class AnaliseElencoService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AnaliseElencoService.class);
     private final JogadorRepository jogadorRepo;
     private final PartidaRepository partidaRepo;
     private final AtuacaoRepository atuacaoRepo;
@@ -35,11 +38,20 @@ public class AnaliseElencoService {
     }
 
     public List<Map<String, Object>> construirAnalise(String posicaoFiltro) {
-        List<Jogador> jogadores = jogadorRepo.findAll();
-        List<Partida> partidas = partidaRepo.findAllByOrderByDataPartidaAsc();
-        List<Atuacao> atuacoes = atuacaoRepo.findAll();
+        logger.info("GET /analise/elenco - Iniciando análise do elenco. Filtro: {}", posicaoFiltro);
+        try {
+            List<Jogador> jogadores = jogadorRepo.findAll();
+            List<Partida> partidas = partidaRepo.findAllByOrderByDataPartidaAsc();
+            List<Atuacao> atuacoes = atuacaoRepo.findAll();
+            int totalPartidas = Math.max(1, partidas.size());
 
-        if (jogadores.isEmpty() || atuacoes.isEmpty()) return List.of();
+            logger.info("GET /analise/elenco - Dados carregados: {} jogadores, {} partidas, {} atuações",
+                jogadores.size(), partidas.size(), atuacoes.size());
+
+            if (jogadores.isEmpty() || atuacoes.isEmpty()) {
+                logger.warn("GET /analise/elenco - Elenco vazio ou sem atuações");
+                return List.of();
+            }
 
         Map<String, LocalDate> datasPorPartida = partidas.stream()
                 .collect(Collectors.toMap(Partida::getPartidaId, Partida::getDataPartida));
@@ -92,13 +104,23 @@ public class AnaliseElencoService {
                     .sum();
             p.setMinutosUltimos5Jogos(min5);
 
-            computeMetricasPor90(p);
-            players.add(p);
-        }
+             // Média de nota do técnico (se houver)
+             List<Integer> notasTecnico = ats.stream()
+                     .map(Atuacao::getNotaTecnico)
+                     .filter(n -> n != null)
+                     .toList();
+             double mediaNotaTecnico = notasTecnico.isEmpty() ? 0 :
+                     notasTecnico.stream().mapToInt(Integer::intValue).average().orElse(0);
+             p.setScoreNotaTecnico(mediaNotaTecnico);  // Armazenar média bruta (1-5) por enquanto
 
-        computeDesempenhoBruto(players);
-        normalizeByPosition(players, PlayerCalc::getDesempenhoBruto, PlayerCalc::setScoreDesempenho);
-        computeDisciplina(players);
+             computeMetricasPor90(p);
+             players.add(p);
+         }
+
+         computeDesempenhoBruto(players, atuacoesPorJogador);
+         normalizeByPosition(players, PlayerCalc::getDesempenhoBruto, PlayerCalc::setScoreDesempenho);
+         computeDisciplina(players);
+         computeConfiabilidade(players, totalPartidas);
         computeTitularidade(players);
         computeUsoRecente(players);
         normalizeByPosition(players, PlayerCalc::getIndicUsoRecente, PlayerCalc::setScoreUsoRecente);
@@ -109,11 +131,18 @@ public class AnaliseElencoService {
                 ? players
                 : players.stream().filter(p -> p.getPosicao().equals(posicaoFiltro)).toList();
 
-        return filtrados.stream()
+        var resultado = filtrados.stream()
                 .sorted(Comparator.comparing(PlayerCalc::getPosicao)
                         .thenComparingInt(PlayerCalc::getRankTitularidadePosicao))
                 .map(this::toMap)
                 .toList();
+        
+        logger.info("GET /analise/elenco - Análise concluída. Retornando {} jogadores", resultado.size());
+        return resultado;
+        } catch (Exception e) {
+            logger.error("GET /analise/elenco - Erro ao construir análise: ", e);
+            throw e;
+        }
     }
 
     // ---------- métricas por 90 ----------
@@ -145,66 +174,81 @@ public class AnaliseElencoService {
         p.setJogosSemSofrerGolsPorJogoPonderado(p.getJogosSemSofrerGolsPorJogo() * 100);
     }
 
-    // ---------- desempenho bruto por posição ----------
+     // ---------- desempenho bruto por posição ----------
 
-    private void computeDesempenhoBruto(List<PlayerCalc> players) {
-        for (PlayerCalc p : players) {
-            p.setDesempenhoBruto(switch (p.getPosicao()) {
-                case "Atacante" ->
-                        p.getGolsPor90() * 0.35
-                        + p.getAssistenciasPor90() * 0.20
-                        + p.getFinalizacoesNoAlvoPor90() * 0.20
-                        + p.getTaxaFinalizacoesNoAlvoPonderada() * 0.10
-                        + p.getPassesDecisosPor90() * 0.15;
-                case "Meia" ->
-                        p.getAssistenciasPor90() * 0.25
-                        + p.getPassesDecisosPor90() * 0.35
-                        + p.getPassesCertosPor90() * 0.20
-                        + p.getGolsPor90() * 0.20;
-                case "Zagueiro" ->
-                        p.getGolsPor90() * 0.10
-                        + p.getAssistenciasPor90() * 0.05
-                        + p.getDesarmesPor90() * 0.25
-                        + p.getInterceptacoesPor90() * 0.20
-                        + p.getDuelosGanhosPor90() * 0.25
-                        + p.getPassesCertosPor90() * 0.15;
-                case "Lateral" ->
-                        p.getGolsPor90() * 0.10
-                        + p.getAssistenciasPor90() * 0.15
-                        + p.getDesarmesPor90() * 0.15
-                        + p.getInterceptacoesPor90() * 0.15
-                        + p.getCruzamentosCertosPor90() * 0.20
-                        + p.getPassesDecisosPor90() * 0.20
-                        + p.getRecuperacoesBolaPor90() * 0.05;
-                case "Volante" ->
-                        p.getGolsPor90() * 0.05
-                        + p.getAssistenciasPor90() * 0.05
-                        + p.getDesarmesPor90() * 0.25
-                        + p.getInterceptacoesPor90() * 0.25
-                        + p.getRecuperacoesBolaPor90() * 0.20
-                        + p.getPassesCertosPor90() * 0.20;
-                case "Goleiro" ->
-                        p.getDefesasDificeisPor90() * 0.45
-                        + p.getGolsSofridosPor90Invertido() * 0.30
-                        + p.getJogosSemSofrerGolsPorJogoPonderado() * 0.25;
-                default ->
-                        p.getGolsPor90() * 0.25
-                        + p.getPassesDecisosPor90() * 0.20
-                        + p.getDesarmesPor90() * 0.20
-                        + p.getDuelosGanhosPor90() * 0.20
-                        + p.getPassesCertosPor90() * 0.15;
-            });
-        }
-    }
+     private void computeDesempenhoBruto(List<PlayerCalc> players, Map<String, List<Atuacao>> atuacoesPorJogador) {
+         for (PlayerCalc p : players) {
+             double desempenho = switch (p.getPosicao()) {
+                 case "Atacante" ->
+                         p.getGolsPor90() * 0.35
+                         + p.getAssistenciasPor90() * 0.20
+                         + p.getFinalizacoesNoAlvoPor90() * 0.20
+                         + p.getTaxaFinalizacoesNoAlvoPonderada() * 0.10
+                         + p.getPassesDecisosPor90() * 0.15;
+                 case "Meia" ->
+                         p.getAssistenciasPor90() * 0.25
+                         + p.getPassesDecisosPor90() * 0.35
+                         + p.getPassesCertosPor90() * 0.20
+                         + p.getGolsPor90() * 0.20;
+                 case "Zagueiro" ->
+                         p.getGolsPor90() * 0.10
+                         + p.getAssistenciasPor90() * 0.05
+                         + p.getDesarmesPor90() * 0.25
+                         + p.getInterceptacoesPor90() * 0.20
+                         + p.getDuelosGanhosPor90() * 0.25
+                         + p.getPassesCertosPor90() * 0.15;
+                 case "Lateral" ->
+                         p.getGolsPor90() * 0.10
+                         + p.getAssistenciasPor90() * 0.15
+                         + p.getDesarmesPor90() * 0.15
+                         + p.getInterceptacoesPor90() * 0.15
+                         + p.getCruzamentosCertosPor90() * 0.20
+                         + p.getPassesDecisosPor90() * 0.20
+                         + p.getRecuperacoesBolaPor90() * 0.05;
+                 case "Volante" ->
+                         p.getGolsPor90() * 0.05
+                         + p.getAssistenciasPor90() * 0.05
+                         + p.getDesarmesPor90() * 0.25
+                         + p.getInterceptacoesPor90() * 0.25
+                         + p.getRecuperacoesBolaPor90() * 0.20
+                         + p.getPassesCertosPor90() * 0.20;
+                 case "Goleiro" ->
+                         p.getDefesasDificeisPor90() * 0.45
+                         + p.getGolsSofridosPor90Invertido() * 0.30
+                         + p.getJogosSemSofrerGolsPorJogoPonderado() * 0.25;
+                 default ->
+                         p.getGolsPor90() * 0.25
+                         + p.getPassesDecisosPor90() * 0.20
+                         + p.getDesarmesPor90() * 0.20
+                         + p.getDuelosGanhosPor90() * 0.20
+                         + p.getPassesCertosPor90() * 0.15;
+             };
+
+             // Adicionar contribuição da nota do técnico normalizada (1-5 -> 0-100)
+             double scoreNotaNormalizado = p.getScoreNotaTecnico() > 0 ?
+                     (p.getScoreNotaTecnico() / 5.0) * 100 : 50;
+             desempenho = desempenho * (1 - ContextoConst.PESO_DESEMPENHO_NOTA_TECNICO)
+                     + scoreNotaNormalizado * ContextoConst.PESO_DESEMPENHO_NOTA_TECNICO;
+
+             p.setDesempenhoBruto(desempenho);
+         }
+     }
 
     // ---------- disciplina ----------
 
     private void computeDisciplina(List<PlayerCalc> players) {
-        double min = players.stream().mapToDouble(this::disciplinaBruta).min().orElse(0);
-        double max = players.stream().mapToDouble(this::disciplinaBruta).max().orElse(0);
-        for (PlayerCalc p : players) {
-            double normalizado = normalize(disciplinaBruta(p), min, max);
-            p.setScoreDisciplina(round2(100 - normalizado));
+        // Normalize by position to ensure fairness within each role
+        // A defender is not compared to a striker for discipline — they play differently
+        Map<String, List<PlayerCalc>> byPos = players.stream()
+                .collect(Collectors.groupingBy(PlayerCalc::getPosicao));
+
+        for (List<PlayerCalc> grupo : byPos.values()) {
+            double min = grupo.stream().mapToDouble(this::disciplinaBruta).min().orElse(0);
+            double max = grupo.stream().mapToDouble(this::disciplinaBruta).max().orElse(0);
+            for (PlayerCalc p : grupo) {
+                double normalizado = normalize(disciplinaBruta(p), min, max);
+                p.setScoreDisciplina(round2(100 - normalizado));
+            }
         }
     }
 
@@ -214,6 +258,16 @@ public class AnaliseElencoService {
                 + p.getFaltasCometidas() * ContextoConst.PESO_DISCIPLINA_FALTA;
     }
 
+    // ---------- confiabilidade / presença ----------
+
+    private void computeConfiabilidade(List<PlayerCalc> players, int totalPartidas) {
+        for (PlayerCalc p : players) {
+            double taxa = (double) p.getJogos() / totalPartidas;
+            p.setTaxaPresenca(round4(Math.min(1.0, taxa)));
+            p.setScoreConfiabilidade(round2(p.getTaxaPresenca() * 100));
+        }
+    }
+
     // ---------- titularidade ----------
 
     private void computeTitularidade(List<PlayerCalc> players) {
@@ -221,6 +275,7 @@ public class AnaliseElencoService {
             p.setScoreTitularidade(round2(
                     p.getScoreDesempenho() * ContextoConst.PESO_TITULARIDADE_DESEMPENHO
                     + p.getScoreDisciplina() * ContextoConst.PESO_TITULARIDADE_DISCIPLINA
+                    + p.getScoreConfiabilidade() * ContextoConst.PESO_TITULARIDADE_CONFIABILIDADE
             ));
         }
     }
@@ -229,10 +284,22 @@ public class AnaliseElencoService {
 
     private void computeUsoRecente(List<PlayerCalc> players) {
         for (PlayerCalc p : players) {
-            double mediaMinutos = p.getJogos() > 0 ? (double) p.getMinutosJogados() / p.getJogos() : 0;
-            double expectativa = mediaMinutos * 5;
-            double indice = expectativa > 0 ? p.getMinutosUltimos5Jogos() / expectativa : 0;
-            p.setIndicUsoRecente(round4(indice));
+            double indice;
+
+            if (p.getJogos() < 5) {
+                // For players with < 5 games, use direct average of recent minutes
+                // compared to a "full match" baseline (90 minutes)
+                // This avoids penalizing new players unfairly
+                double mediaMinutosRecentes = p.getMinutosUltimos5Jogos() / Math.max(1, p.getJogos());
+                indice = mediaMinutosRecentes / 90.0;
+            } else {
+                // For players with 5+ games, use the expectation-based formula
+                double mediaMinutos = (double) p.getMinutosJogados() / p.getJogos();
+                double expectativa = mediaMinutos * 5;
+                indice = expectativa > 0 ? p.getMinutosUltimos5Jogos() / expectativa : 0;
+            }
+
+            p.setIndicUsoRecente(round4(Math.min(1.0, indice))); // Cap at 1.0 for normalization
         }
     }
 
@@ -322,6 +389,7 @@ public class AnaliseElencoService {
         m.put("assistencias", p.getAssistencias());
         m.put("score_desempenho", p.getScoreDesempenho());
         m.put("score_disciplina", p.getScoreDisciplina());
+        m.put("score_confiabilidade", p.getScoreConfiabilidade());
         m.put("score_titularidade", p.getScoreTitularidade());
         m.put("score_uso_recente", p.getScoreUsoRecente());
         m.put("score_momento", p.getScoreMomento());
@@ -372,6 +440,7 @@ public class AnaliseElencoService {
                     pc.setJogos((int) m.get("jogos"));
                     pc.setScoreDesempenho((double) m.get("score_desempenho"));
                     pc.setScoreDisciplina((double) m.get("score_disciplina"));
+                    pc.setScoreConfiabilidade((double) m.get("score_confiabilidade"));
                     pc.setScoreTitularidade((double) m.get("score_titularidade"));
                     pc.setScoreUsoRecente((double) m.get("score_uso_recente"));
                     pc.setScoreMomento((double) m.get("score_momento"));

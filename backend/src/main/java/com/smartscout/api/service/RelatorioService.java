@@ -2,11 +2,15 @@ package com.smartscout.api.service;
 
 import com.smartscout.api.config.ContextoConst;
 import com.smartscout.api.entity.Atuacao;
+import com.smartscout.api.entity.ConfirmacaoPresenca;
 import com.smartscout.api.entity.Jogador;
 import com.smartscout.api.entity.Partida;
 import com.smartscout.api.repository.AtuacaoRepository;
+import com.smartscout.api.repository.ConfirmacaoPresencaRepository;
 import com.smartscout.api.repository.JogadorRepository;
 import com.smartscout.api.repository.PartidaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -15,26 +19,34 @@ import java.util.stream.Collectors;
 @Service
 public class RelatorioService {
 
+    private static final Logger logger = LoggerFactory.getLogger(RelatorioService.class);
     private final AnaliseElencoService analiseService;
     private final JogadorRepository jogadorRepo;
     private final PartidaRepository partidaRepo;
     private final AtuacaoRepository atuacaoRepo;
+    private final ConfirmacaoPresencaRepository confirmacaoPresencaRepo;
 
     public RelatorioService(AnaliseElencoService analiseService,
                             JogadorRepository jogadorRepo,
                             PartidaRepository partidaRepo,
-                            AtuacaoRepository atuacaoRepo) {
+                            AtuacaoRepository atuacaoRepo,
+                            ConfirmacaoPresencaRepository confirmacaoPresencaRepo) {
         this.analiseService = analiseService;
         this.jogadorRepo = jogadorRepo;
         this.partidaRepo = partidaRepo;
         this.atuacaoRepo = atuacaoRepo;
+        this.confirmacaoPresencaRepo = confirmacaoPresencaRepo;
     }
 
     public Map<String, Object> contexto() {
+        logger.info("GET /meta/contexto - Buscando contexto da API");
         long qtdJogadores = jogadorRepo.count();
         long qtdPartidas = partidaRepo.count();
         long qtdAtuacoes = atuacaoRepo.count();
         String modo = qtdAtuacoes > 0 ? "operacional" : "cadastro";
+
+        logger.info("GET /meta/contexto - Contexto: modo={}, jogadores={}, partidas={}, atuações={}", 
+            modo, qtdJogadores, qtdPartidas, qtdAtuacoes);
 
         Map<String, Object> ctx = new LinkedHashMap<>();
         ctx.put("modo_analitico", modo);
@@ -54,6 +66,41 @@ public class RelatorioService {
         List<Atuacao> atuacoes = atuacaoRepo.findAll();
         List<Jogador> jogadores = jogadorRepo.findAll();
         List<Partida> partidas = partidaRepo.findAll();
+
+        Map<String, String> nomesPorId = jogadores.stream()
+                .collect(Collectors.toMap(Jogador::getJogadorId, Jogador::getJogador));
+
+        // Artilharia: top 5 goleadores
+        List<Map<String, Object>> artilharia = atuacoes.stream()
+                .collect(Collectors.groupingBy(Atuacao::getJogadorId,
+                        Collectors.summingInt(Atuacao::getGols)))
+                .entrySet().stream()
+                .filter(e -> e.getValue() > 0)
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(5)
+                .map(e -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("jogador", nomesPorId.getOrDefault(e.getKey(), e.getKey()));
+                    row.put("gols", e.getValue());
+                    return row;
+                })
+                .toList();
+
+        // Garçom: top 5 por assistências
+        List<Map<String, Object>> garcom = atuacoes.stream()
+                .collect(Collectors.groupingBy(Atuacao::getJogadorId,
+                        Collectors.summingInt(Atuacao::getAssistencias)))
+                .entrySet().stream()
+                .filter(e -> e.getValue() > 0)
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(5)
+                .map(e -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("jogador", nomesPorId.getOrDefault(e.getKey(), e.getKey()));
+                    row.put("assistencias", e.getValue());
+                    return row;
+                })
+                .toList();
 
         long ativos = jogadores.stream().filter(j -> "Ativo".equals(j.getStatus())).count();
 
@@ -120,6 +167,8 @@ public class RelatorioService {
         result.put("destaques_momento", destaques);
         result.put("disputas_posicao", disputas);
         result.put("ultimas_atuacoes", ultimasAtuacoes);
+        result.put("artilharia", artilharia);
+        result.put("garcom", garcom);
         return result;
     }
 
@@ -183,37 +232,92 @@ public class RelatorioService {
         return result;
     }
 
-    public List<Map<String, Object>> timeIdeal(String formacao) {
-        Map<String, Integer> slots = ContextoConst.FORMACOES_BASE.get(formacao);
-        if (slots == null) throw new IllegalArgumentException("Formacao desconhecida: " + formacao);
+    public Map<String, Object> timeIdeal(String formacao) {
+        return timeIdeal(formacao, null);
+    }
 
-        List<Map<String, Object>> elenco = analiseService.construirAnalise();
-        List<Map<String, Object>> escalacao = new ArrayList<>();
-        Set<String> usados = new HashSet<>();
+    public Map<String, Object> timeIdeal(String formacao, String partidaId) {
+        logger.info("GET /analise/time-ideal - Gerando escalação. Formação: {}, Partida: {}", formacao, partidaId);
+        try {
+            Map<String, Integer> slots = ContextoConst.FORMACOES_BASE.get(formacao);
+            if (slots == null) {
+                logger.warn("GET /analise/time-ideal - Formação desconhecida: {}", formacao);
+                throw new IllegalArgumentException("Formacao desconhecida: " + formacao);
+            }
 
-        for (var entry : slots.entrySet()) {
-            String posicao = entry.getKey();
-            int vagas = entry.getValue();
-            elenco.stream()
+            List<Map<String, Object>> elenco = analiseService.construirAnalise();
+            logger.info("GET /analise/time-ideal - Elenco carregado com {} jogadores", elenco.size());
+            
+            // Se partidaId fornecido, filtrar apenas jogadores confirmados para aquela partida
+            if (partidaId != null && !partidaId.isBlank()) {
+                Set<String> confirmados = confirmacaoPresencaRepo.findByPartidaIdAndConfirmadoTrue(partidaId)
+                        .stream()
+                        .map(ConfirmacaoPresenca::getJogadorId)
+                        .collect(Collectors.toSet());
+                logger.info("GET /analise/time-ideal - {} jogadores confirmados para a partida", confirmados.size());
+                
+                elenco = elenco.stream()
+                        .filter(m -> {
+                            Object idObj = m.get("jogador_id");
+                            String id = idObj instanceof String ? (String) idObj : "";
+                            return confirmados.contains(id);
+                        })
+                        .toList();
+                logger.info("GET /analise/time-ideal - Elenco filtrado para {} confirmados", elenco.size());
+            }
+            
+            List<Map<String, Object>> escalacao = new ArrayList<>();
+            Set<String> usados = new HashSet<>();
+
+            for (var entry : slots.entrySet()) {
+                String posicao = entry.getKey();
+                int vagas = entry.getValue();
+                elenco.stream()
+                        .filter(m -> {
+                            Object posObj = m.get("posicao");
+                            Object idObj = m.get("jogador_id");
+                            String pos = posObj instanceof String ? (String) posObj : "";
+                            String id = idObj instanceof String ? (String) idObj : "";
+                            return posicao.equals(pos) && !usados.contains(id);
+                        })
+                        .sorted(Comparator.comparingDouble(m -> -toDouble(m.get("score_titularidade"))))
+                        .limit(vagas)
+                        .forEach(m -> {
+                            Object idObj = m.get("jogador_id");
+                            String id = idObj instanceof String ? (String) idObj : "";
+                            usados.add(id);
+                            Map<String, Object> slot = new LinkedHashMap<>(m);
+                            slot.put("vaga_formacao", posicao);
+                            escalacao.add(slot);
+                            logger.debug("GET /analise/time-ideal - Jogador {} escalado como {}", id, posicao);
+                        });
+            }
+
+            // Banco: próximos 7 melhores que não entraram no XI
+            List<Map<String, Object>> banco = elenco.stream()
                     .filter(m -> {
-                        Object posObj = m.get("posicao");
                         Object idObj = m.get("jogador_id");
-                        String pos = posObj instanceof String ? (String) posObj : "";
                         String id = idObj instanceof String ? (String) idObj : "";
-                        return posicao.equals(pos) && !usados.contains(id);
+                        return !usados.contains(id);
                     })
                     .sorted(Comparator.comparingDouble(m -> -toDouble(m.get("score_titularidade"))))
-                    .limit(vagas)
-                    .forEach(m -> {
-                        Object idObj = m.get("jogador_id");
-                        String id = idObj instanceof String ? (String) idObj : "";
-                        usados.add(id);
+                    .limit(7)
+                    .map(m -> {
                         Map<String, Object> slot = new LinkedHashMap<>(m);
-                        slot.put("vaga_formacao", posicao);
-                        escalacao.add(slot);
-                    });
+                        slot.put("vaga_formacao", m.get("posicao"));
+                        return slot;
+                    })
+                    .toList();
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("items", escalacao);
+            result.put("banco", banco);
+            logger.info("GET /analise/time-ideal - Escalação gerada. XI: {} jogadores, Banco: {} jogadores", escalacao.size(), banco.size());
+            return result;
+        } catch (Exception e) {
+            logger.error("GET /analise/time-ideal - Erro ao gerar escalação: ", e);
+            throw e;
         }
-        return escalacao;
     }
 
     // ---------- helpers ----------

@@ -31,14 +31,18 @@ public final class ContextoConst {
     );
 
     // Score weights — mirrors configuracao.py
-    public static final double PESO_TITULARIDADE_DESEMPENHO = 0.79;
-    public static final double PESO_TITULARIDADE_DISCIPLINA = 0.21;
+    public static final double PESO_TITULARIDADE_DESEMPENHO = 0.60;
+    public static final double PESO_TITULARIDADE_DISCIPLINA = 0.15;
+    public static final double PESO_TITULARIDADE_CONFIABILIDADE = 0.25;
     public static final double PESO_MOMENTO_TITULARIDADE = 0.70;
     public static final double PESO_MOMENTO_USO_RECENTE = 0.30;
 
     public static final double PESO_DISCIPLINA_AMARELO = 1.5;
     public static final double PESO_DISCIPLINA_VERMELHO = 6.0;
     public static final double PESO_DISCIPLINA_FALTA = 0.4;
+
+    // Nota do técnico: peso na fórmula de desempenho
+    public static final double PESO_DESEMPENHO_NOTA_TECNICO = 0.05;
 
     public static final double DELTA_GANHOU_ESPACO = 8.0;
     public static final double DELTA_PERDEU_ESPACO = -8.0;

@@ -88,7 +88,8 @@ function AtuacaoWizard({
         <div className="wizard-steps">
           <div className="wstep done" onClick={() => setStep(1)}>1 Partida</div>
           <div className="wstep active">2 Jogador</div>
-          <div className="wstep">3 Stats</div>
+          <div className="wstep">3 Presença</div>
+          <div className="wstep">4 Stats</div>
         </div>
         <div className="wizard-context">
           <button className="wizard-back" onClick={() => setStep(1)}>← Trocar partida</button>
@@ -119,23 +120,122 @@ function AtuacaoWizard({
     );
   }
 
-  // ── Step 3: stats entry ────────────────────────────────────────────────────
+  // ── Step 3: marcar presença e nota do técnico ───────────────────────────────
+  if (step === 3) {
+    return (
+      <div className="wizard">
+        <div className="wizard-steps">
+          <div className="wstep done" onClick={() => setStep(1)}>1 Partida</div>
+          <div className="wstep done" onClick={() => setStep(2)}>2 Jogador</div>
+          <div className="wstep active">3 Presença</div>
+          <div className="wstep">4 Stats</div>
+        </div>
+
+        <div className="wizard-context">
+          <button className="wizard-back" onClick={() => setStep(2)}>← Trocar jogador</button>
+          <div className="wizard-player-info">
+            <div className={`wizard-avatar ${posTone(atuacaoForm.posicao_jogo)}`}>{initials(atuacaoForm.jogador)}</div>
+            <div>
+              <strong>{atuacaoForm.jogador || "—"}</strong>
+              <div style={{ fontSize: "0.8rem", color: "var(--text2)" }}>
+                {partidaSelecionada ? `vs ${partidaSelecionada.adversario}` : atuacaoForm.partida_id}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={(e) => { e.preventDefault(); setStep(4); }}>
+          {/* Marcar presença */}
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Marcou presença?</label>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <label style={{ flex: 1 }}>
+                <input
+                  type="radio"
+                  name="presenca"
+                  value="JOGOU"
+                  checked={atuacaoForm.presenca === "JOGOU"}
+                  onChange={(e) => handlePresencaChange(e.target.value)}
+                  style={{ marginRight: "6px" }}
+                />
+                Jogou (90 min)
+              </label>
+              <label style={{ flex: 1 }}>
+                <input
+                  type="radio"
+                  name="presenca"
+                  value="PARCIAL"
+                  checked={atuacaoForm.presenca === "PARCIAL"}
+                  onChange={(e) => handlePresencaChange(e.target.value)}
+                  style={{ marginRight: "6px" }}
+                />
+                Parcial (entrar/sair)
+              </label>
+              <label style={{ flex: 1 }}>
+                <input
+                  type="radio"
+                  name="presenca"
+                  value="NAO_JOGOU"
+                  checked={atuacaoForm.presenca === "NAO_JOGOU"}
+                  onChange={(e) => handlePresencaChange(e.target.value)}
+                  style={{ marginRight: "6px" }}
+                />
+                Não jogou
+              </label>
+            </div>
+          </div>
+
+          {/* Nota do técnico (1-5 stars) */}
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Nota do técnico (1-5)</label>
+            <div style={{ display: "flex", gap: "8px", fontSize: "24px" }}>
+              {[1, 2, 3, 4, 5].map((nota) => (
+                <button
+                  key={nota}
+                  type="button"
+                  onClick={() => setAtuacaoForm((cur) => ({ ...cur, nota_tecnico: nota }))}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    opacity: (atuacaoForm.nota_tecnico || 0) >= nota ? 1 : 0.3,
+                    transition: "opacity 0.2s",
+                  }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="wizard-actions">
+            <button className="btn-primary" type="submit">
+              Próximo: Estatísticas →
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ── Step 4: stats entry ────────────────────────────────────────────────────
   return (
     <div className="wizard">
       <div className="wizard-steps">
         <div className="wstep done" onClick={() => setStep(1)}>1 Partida</div>
         <div className="wstep done" onClick={() => setStep(2)}>2 Jogador</div>
-        <div className="wstep active">3 Stats</div>
+        <div className="wstep done" onClick={() => setStep(3)}>3 Presença</div>
+        <div className="wstep active">4 Stats</div>
       </div>
 
       <div className="wizard-context">
-        <button className="wizard-back" onClick={() => setStep(2)}>← Trocar jogador</button>
+        <button className="wizard-back" onClick={() => setStep(3)}>← Trocar presença</button>
         <div className="wizard-player-info">
           <div className={`wizard-avatar ${posTone(atuacaoForm.posicao_jogo)}`}>{initials(atuacaoForm.jogador)}</div>
           <div>
             <strong>{atuacaoForm.jogador || "—"}</strong>
             <div style={{ fontSize: "0.8rem", color: "var(--text2)" }}>
-              {partidaSelecionada ? `vs ${partidaSelecionada.adversario}` : atuacaoForm.partida_id}
+              {atuacaoForm.presenca} {atuacaoForm.nota_tecnico && `· ⭐ ${atuacaoForm.nota_tecnico}`}
             </div>
           </div>
         </div>
@@ -145,15 +245,15 @@ function AtuacaoWizard({
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Minutes control */}
+        {/* Minutes control - disabled if NAO_JOGOU */}
         <div className="minutes-control">
           <span className="minutes-label">Minutos jogados</span>
           <div className="minutes-row">
-            <button type="button" className="minutes-btn" onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.max(0, c.minutos_jogados - 5) }))}>−5</button>
-            <button type="button" className="minutes-btn" onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.max(0, c.minutos_jogados - 1) }))}>−1</button>
+            <button type="button" className="minutes-btn" disabled={atuacaoForm.presenca === "NAO_JOGOU"} onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.max(0, c.minutos_jogados - 5) }))}>−5</button>
+            <button type="button" className="minutes-btn" disabled={atuacaoForm.presenca === "NAO_JOGOU"} onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.max(0, c.minutos_jogados - 1) }))}>−1</button>
             <span className="minutes-val">{atuacaoForm.minutos_jogados}</span>
-            <button type="button" className="minutes-btn" onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.min(120, c.minutos_jogados + 1) }))}>+1</button>
-            <button type="button" className="minutes-btn" onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.min(120, c.minutos_jogados + 5) }))}>+5</button>
+            <button type="button" className="minutes-btn" disabled={atuacaoForm.presenca === "NAO_JOGOU"} onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.min(120, c.minutos_jogados + 1) }))}>+1</button>
+            <button type="button" className="minutes-btn" disabled={atuacaoForm.presenca === "NAO_JOGOU"} onClick={() => setAtuacaoForm((c) => ({ ...c, minutos_jogados: Math.min(120, c.minutos_jogados + 5) }))}>+5</button>
           </div>
         </div>
 
@@ -207,6 +307,7 @@ export default function EntradaDados({
   jogadores, partidas, atuacoes,
   posicoesDisponiveis, resultadosDisponiveis, formacoesDisponiveis, funcoesDisponiveis, pesDisponiveis,
   jogadorForm, setJogadorForm, submitJogador,
+  jogadorEmEdicaoId, iniciarEdicaoJogador, cancelarEdicaoJogador, excluirJogadorLinha,
   partidaForm, setPartidaForm, submitPartida,
   atuacaoForm, setAtuacaoForm, atuacaoEmEdicaoId,
   submitAtuacao, cancelarEdicaoAtuacao,
@@ -215,7 +316,7 @@ export default function EntradaDados({
 }) {
   return (
     <div className="page-content">
-      <section className="card">
+<section className="card">
         <div className="card-header"><span className="card-title">Entrada de dados</span></div>
         <div className="card-body">
           <div className="entry-tabs">
@@ -230,56 +331,91 @@ export default function EntradaDados({
 
       {entryTab === "jogadores" && (
         <div className="entrada-grid">
-          <article className="card">
-            <div className="card-header"><span className="card-title">Cadastro do elenco</span></div>
-            <div className="form-body">
-              <form className="field-grid" onSubmit={submitJogador}>
-                <label className="field span-2">
-                  <span>Nome completo</span>
-                  <input value={jogadorForm.jogador} onChange={(e) => setJogadorForm({ ...jogadorForm, jogador: e.target.value })} placeholder="Ex: Joao da Silva" />
-                </label>
-                <label className="field">
-                  <span>Posicao</span>
-                  <select value={jogadorForm.posicao} onChange={(e) => setJogadorForm({ ...jogadorForm, posicao: e.target.value })}>
-                    {posicoesDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Status</span>
-                  <select value={jogadorForm.status} onChange={(e) => setJogadorForm({ ...jogadorForm, status: e.target.value })}>
-                    <option value="Ativo">Ativo</option>
-                    <option value="Inativo">Inativo</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Funcao tatica</span>
-                  <select value={jogadorForm.funcao} onChange={(e) => setJogadorForm({ ...jogadorForm, funcao: e.target.value })}>
-                    {funcoesDisponiveis.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Pe dominante</span>
-                  <select value={jogadorForm.pe_dominante} onChange={(e) => setJogadorForm({ ...jogadorForm, pe_dominante: e.target.value })}>
-                    {pesDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </label>
-                <label className="field span-2">
-                  <span>Observacoes</span>
-                  <textarea value={jogadorForm.observacoes} onChange={(e) => setJogadorForm({ ...jogadorForm, observacoes: e.target.value })} placeholder="Caracteristicas tecnicas, contexto fisico ou comportamento." />
-                </label>
-                <button className="btn-primary span-2" type="submit">Salvar jogador</button>
-              </form>
-            </div>
-          </article>
-          <article className="card">
-            <div className="card-header">
-              <span className="card-title">Elenco cadastrado</span>
-              <span className="card-badge">{jogadores.length}</span>
-            </div>
-            <div className="card-body">
-              <DataTable rows={jogadores.slice().reverse()} preferredOrder={["jogador", "posicao", "status", "funcao", "pe_dominante"]} />
-            </div>
-          </article>
+           <article className="card">
+             <div className="card-header"><span className="card-title">Cadastro do elenco</span></div>
+             <div className="form-body">
+               <form className="field-grid" onSubmit={submitJogador}>
+                 <label className="field span-2">
+                   <span>Nome completo</span>
+                   <input value={jogadorForm.jogador} onChange={(e) => setJogadorForm({ ...jogadorForm, jogador: e.target.value })} placeholder="Ex: Joao da Silva" />
+                 </label>
+                 <label className="field">
+                   <span>Posicao</span>
+                   <select value={jogadorForm.posicao} onChange={(e) => setJogadorForm({ ...jogadorForm, posicao: e.target.value })}>
+                     {posicoesDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
+                   </select>
+                 </label>
+                 <label className="field">
+                   <span>Status</span>
+                   <select value={jogadorForm.status} onChange={(e) => setJogadorForm({ ...jogadorForm, status: e.target.value })}>
+                     <option value="Ativo">Ativo</option>
+                     <option value="Inativo">Inativo</option>
+                   </select>
+                 </label>
+                 <label className="field">
+                   <span>Funcao tatica</span>
+                   <select value={jogadorForm.funcao} onChange={(e) => setJogadorForm({ ...jogadorForm, funcao: e.target.value })}>
+                     {funcoesDisponiveis.map((f) => <option key={f} value={f}>{f}</option>)}
+                   </select>
+                 </label>
+                 <label className="field">
+                   <span>Pe dominante</span>
+                   <select value={jogadorForm.pe_dominante} onChange={(e) => setJogadorForm({ ...jogadorForm, pe_dominante: e.target.value })}>
+                     {pesDisponiveis.map((p) => <option key={p} value={p}>{p}</option>)}
+                   </select>
+                 </label>
+                 <label className="field span-2">
+                   <span>Observacoes</span>
+                   <textarea value={jogadorForm.observacoes} onChange={(e) => setJogadorForm({ ...jogadorForm, observacoes: e.target.value })} placeholder="Caracteristicas tecnicas, contexto fisico ou comportamento." />
+                 </label>
+                 <div style={{ display: "flex", gap: "8px", gridColumn: "span 2" }}>
+                   <button className="btn-primary" type="submit" style={{ flex: 1 }}>
+                     {jogadorEmEdicaoId ? "Atualizar jogador" : "Salvar jogador"}
+                   </button>
+                   {jogadorEmEdicaoId && (
+                     <button className="btn-secondary" type="button" onClick={cancelarEdicaoJogador}>
+                       Cancelar
+                     </button>
+                   )}
+                 </div>
+               </form>
+               {jogadorEmEdicaoId && (
+                 <div style={{ padding: "12px", background: "#fff3cd", borderRadius: "4px", marginTop: "12px", fontSize: "0.9rem", color: "#856404" }}>
+                   ✎ Editando jogador. Clique em "Atualizar" para salvar as mudanças.
+                 </div>
+               )}
+             </div>
+           </article>
+           <article className="card">
+             <div className="card-header">
+               <span className="card-title">Elenco cadastrado</span>
+               <span className="card-badge">{jogadores.length}</span>
+             </div>
+             <div className="card-body">
+               <DataTable
+                 rows={jogadores.slice().reverse()}
+                 preferredOrder={["jogador", "posicao", "status", "funcao", "pe_dominante"]}
+                 renderActions={(row) => (
+                   <div style={{ display: "flex", gap: "8px" }}>
+                     <button
+                       className="btn-secondary"
+                       style={{ padding: "6px 12px", fontSize: "0.85rem" }}
+                       onClick={() => iniciarEdicaoJogador(row)}
+                     >
+                       ✏️ Editar
+                     </button>
+                     <button
+                       className="btn-danger"
+                       style={{ padding: "6px 12px", fontSize: "0.85rem", background: "#e05555" }}
+                       onClick={() => excluirJogadorLinha(row.jogador_id)}
+                     >
+                       🗑️ Excluir
+                     </button>
+                   </div>
+                 )}
+               />
+             </div>
+           </article>
         </div>
       )}
 

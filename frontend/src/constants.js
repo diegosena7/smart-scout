@@ -3,7 +3,7 @@ export const TABS = [
   { id: "analise", label: "Analise do elenco", icon: "✦" },
   { id: "comparacao", label: "Comparar jogadores", icon: "⊞" },
   { id: "time", label: "Time ideal", icon: "◈" },
-  { id: "entrada", label: "Entrada de dados", icon: "＋" },
+  { id: "entrada", label: "Dados do Time", icon: "＋" },
 ];
 
 export const ENTRY_TABS = [
@@ -32,7 +32,7 @@ export const emptyPartida = {
   mandante: "Casa", resultado: "Vitoria", formacao: "4-3-3", observacoes: "",
 };
 export const emptyAtuacao = {
-  partida_id: "", jogador_id: "", jogador: "", posicao_jogo: "Atacante", minutos_jogados: 90,
+  partida_id: "", jogador_id: "", jogador: "", posicao_jogo: "Atacante", presenca: "JOGOU", nota_tecnico: null, minutos_jogados: 90,
   gols: 0, assistencias: 0, finalizacoes: 0, finalizacoes_no_alvo: 0, passes_decisivos: 0,
   passes_certos: 0, desarmes: 0, duelos_ganhos: 0, interceptacoes: 0, recuperacoes_bola: 0,
   cruzamentos_certos: 0, defesas_dificeis: 0, gols_sofridos: 0, jogos_sem_sofrer_gols: 0,

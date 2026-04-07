@@ -30,7 +30,7 @@ export default function AnaliseElenco({ analise, atuacoes, partidas, jogadores, 
 
   return (
     <div className="page-content">
-      <section className="card">
+<section className="card">
         <div className="card-header spaced">
           <div>
             <span className="card-title">Consultar jogador</span>

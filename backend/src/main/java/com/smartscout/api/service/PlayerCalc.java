@@ -61,6 +61,8 @@ class PlayerCalc {
     double desempenhoBruto;
     double scoreDesempenho;
     double scoreDisciplina;
+    double scoreNotaTecnico;  // Novo: score normalizado da nota do técnico (0-100)
+    double scoreConfiabilidade;
     double scoreTitularidade;
     double indicUsoRecente;
     double scoreUsoRecente;
@@ -69,4 +71,7 @@ class PlayerCalc {
     String tendenciaRecente;
     int rankTitularidadePosicao;
     int rankMomentoPosicao;
+
+    // Confiabilidade / presença
+    double taxaPresenca;       // 0–1 (jogos / totalPartidas)
 }

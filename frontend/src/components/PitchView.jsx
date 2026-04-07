@@ -1,6 +1,6 @@
 import { initials, displayName, posTone } from "../utils";
 
-export default function PitchView({ items, formacao, compact = false }) {
+export default function PitchView({ items, banco, formacao, compact = false, onFormacaoChange, formacoesDisponiveis }) {
   const rows = [
     { top: "10%", players: (items || []).filter((p) => p.vaga_formacao === "Atacante") },
     { top: "32%", players: (items || []).filter((p) => p.vaga_formacao === "Meia" || p.vaga_formacao === "Volante") },
@@ -9,9 +9,15 @@ export default function PitchView({ items, formacao, compact = false }) {
   ];
   return (
     <article className="card">
-      <div className="card-header">
+      <div className="card-header spaced">
         <span className="card-title">Escalacao recomendada</span>
-        <span className="card-badge">{formacao}</span>
+        {onFormacaoChange ? (
+          <select value={formacao} onChange={(e) => onFormacaoChange(e.target.value)}>
+            {(formacoesDisponiveis || [formacao]).map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        ) : (
+          <span className="card-badge">{formacao}</span>
+        )}
       </div>
       <div className={`pitch-field${compact ? " pitch-field-compact" : ""}`}>
         <div className="pitch-outline" />
@@ -36,6 +42,22 @@ export default function PitchView({ items, formacao, compact = false }) {
           </div>
         ))}
       </div>
+      {banco && banco.length > 0 && (
+        <div className="pitch-bench">
+          <div className="pitch-bench-label">Banco</div>
+          <div className="pitch-bench-players">
+            {banco.map((player) => (
+              <div key={player.jogador_id || player.jogador} className="pitch-player-wrap">
+                <div className={`pitch-player ${posTone(player.posicao)}`}>
+                  <span>{initials(player.jogador)}</span>
+                  <small>{Math.round(Number(player.score_titularidade || 0))}</small>
+                </div>
+                <div className="pitch-player-name">{displayName(player.jogador)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </article>
   );
 }

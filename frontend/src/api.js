@@ -38,6 +38,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  updateJogador: (jogadorId, payload) =>
+    request(`/jogadores/${encodeURIComponent(jogadorId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deleteJogador: (jogadorId) =>
+    request(`/jogadores/${encodeURIComponent(jogadorId)}`, {
+      method: "DELETE",
+    }),
   getPartidas: () => request("/partidas"),
   createPartida: (payload) =>
     request("/partidas", {
@@ -59,10 +68,25 @@ export const api = {
     request(`/atuacoes/${encodeURIComponent(atuacaoId)}`, {
       method: "DELETE",
     }),
-  getAnaliseElenco: (posicao) => request(`/analise/elenco${posicao ? `?posicao=${encodeURIComponent(posicao)}` : ""}`),
-  getAnaliseJogador: (nome) => request(`/analise/jogador/${encodeURIComponent(nome)}`),
-  getComparacao: (jogadorA, jogadorB) =>
-    request(`/analise/comparar?jogador_a=${encodeURIComponent(jogadorA)}&jogador_b=${encodeURIComponent(jogadorB)}`),
-  getTimeIdeal: (formacao) => request(`/analise/time-ideal?formacao=${encodeURIComponent(formacao)}`),
-  getValidacao: () => request("/analise/validacao"),
-};
+   getAnaliseElenco: (posicao) => request(`/analise/elenco${posicao ? `?posicao=${encodeURIComponent(posicao)}` : ""}`),
+   getAnaliseJogador: (nome) => request(`/analise/jogador/${encodeURIComponent(nome)}`),
+   getComparacao: (jogadorA, jogadorB) =>
+     request(`/analise/comparar?jogador_a=${encodeURIComponent(jogadorA)}&jogador_b=${encodeURIComponent(jogadorB)}`),
+   getTimeIdeal: (formacao, partidaId) =>
+     request(`/analise/time-ideal?formacao=${encodeURIComponent(formacao)}${partidaId ? `&partida_id=${encodeURIComponent(partidaId)}` : ""}`),
+   getValidacao: () => request("/analise/validacao"),
+
+   // Confirmação de presença
+   getConfirmacoesPorPartida: (partidaId) =>
+     request(`/confirmacao-presenca?partida_id=${encodeURIComponent(partidaId)}`),
+   confirmarPresenca: (partidaId, jogadorId, payload) =>
+     request(`/confirmacao-presenca/confirmar?partida_id=${encodeURIComponent(partidaId)}&jogador_id=${encodeURIComponent(jogadorId)}`, {
+       method: "POST",
+       body: JSON.stringify(payload),
+     }),
+   confirmarLotePresenca: (partidaId, payload) =>
+     request(`/confirmacao-presenca/confirmar-lote?partida_id=${encodeURIComponent(partidaId)}`, {
+       method: "POST",
+       body: JSON.stringify(payload),
+     }),
+ };

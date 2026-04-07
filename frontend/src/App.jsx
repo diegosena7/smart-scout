@@ -23,12 +23,14 @@ function App() {
   const [comparacao, setComparacao] = useState([]);
   const [comparacaoTexto, setComparacaoTexto] = useState({});
   const [timeIdeal, setTimeIdeal] = useState([]);
+  const [timeIdealBanco, setTimeIdealBanco] = useState([]);
   const [filtroPosicao, setFiltroPosicao] = useState("");
   const [formacaoAtual, setFormacaoAtual] = useState("4-3-3");
   const [jogadorForm, setJogadorForm] = useState(emptyJogador);
   const [partidaForm, setPartidaForm] = useState(emptyPartida);
   const [atuacaoForm, setAtuacaoForm] = useState(emptyAtuacao);
   const [atuacaoEmEdicaoId, setAtuacaoEmEdicaoId] = useState("");
+  const [jogadorEmEdicaoId, setJogadorEmEdicaoId] = useState("");
   const [jogadorA, setJogadorA] = useState("");
   const [jogadorB, setJogadorB] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -97,6 +99,7 @@ function App() {
   async function loadTimeIdeal(formacao = formacaoAtual) {
     const data = await api.getTimeIdeal(formacao);
     setTimeIdeal(data.items);
+    setTimeIdealBanco(data.banco || []);
   }
 
   async function bootstrap() {
@@ -121,11 +124,44 @@ function App() {
   async function submitJogador(e) {
     e.preventDefault();
     try {
-      const data = await api.createJogador(jogadorForm);
-      showToast(data.mensagem);
+      if (jogadorEmEdicaoId) {
+        const data = await api.updateJogador(jogadorEmEdicaoId, jogadorForm);
+        showToast(data.mensagem || "Jogador atualizado com sucesso.");
+        setJogadorEmEdicaoId("");
+      } else {
+        const data = await api.createJogador(jogadorForm);
+        showToast(data.mensagem);
+        setActiveTab("dashboard");
+      }
       setJogadorForm({ ...emptyJogador, posicao: posicoesDisponiveis[0], funcao: funcoesDisponiveis[0], pe_dominante: pesDisponiveis[0] });
       await bootstrap();
-      setActiveTab("dashboard");
+    } catch (err) { setFeedback(err.message); }
+  }
+
+  function iniciarEdicaoJogador(jogador) {
+    setJogadorEmEdicaoId(jogador.jogador_id);
+    setJogadorForm({
+      jogador: jogador.jogador,
+      posicao: jogador.posicao,
+      funcao_tatica: jogador.funcao_tatica || "",
+      pe_dominante: jogador.pe_dominante || "",
+    });
+    setActiveTab("entrada");
+    setEntryTab("jogadores");
+  }
+
+  function cancelarEdicaoJogador() {
+    setJogadorEmEdicaoId("");
+    setJogadorForm({ ...emptyJogador, posicao: posicoesDisponiveis[0], funcao: funcoesDisponiveis[0], pe_dominante: pesDisponiveis[0] });
+  }
+
+  async function excluirJogadorLinha(jogadorId) {
+    if (!window.confirm("Excluir este jogador? Esta acao nao pode ser desfeita.")) return;
+    try {
+      const data = await api.deleteJogador(jogadorId);
+      showToast(data?.mensagem || "Jogador excluido com sucesso.");
+      if (jogadorEmEdicaoId === jogadorId) cancelarEdicaoJogador();
+      await bootstrap();
     } catch (err) { setFeedback(err.message); }
   }
 
@@ -148,8 +184,8 @@ function App() {
         ? await api.updateAtuacao(atuacaoEmEdicaoId, atuacaoForm)
         : await api.createAtuacao(atuacaoForm);
       showToast(data.mensagem);
-      // keep partida_id so user can enter next player without re-selecting the match
-      setAtuacaoForm((cur) => ({ ...emptyAtuacao, partida_id: cur.partida_id, minutos_jogados: 90 }));
+       // keep partida_id so user can enter next player without re-selecting the match
+       setAtuacaoForm((cur) => ({ ...emptyAtuacao, partida_id: cur.partida_id, minutos_jogados: 90, presenca: "JOGOU", nota_tecnico: null }));
       setAtuacaoEmEdicaoId("");
       await bootstrap();
       if (onSuccess) onSuccess();
@@ -207,6 +243,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <div className={`page-bg-photo bg-${activeTab}`} aria-hidden="true" />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-badge">Matchday Intelligence</div>
@@ -240,7 +277,15 @@ function App() {
         {toast && <div className="toast-success">{toast}</div>}
         <div className="content">
           {activeTab === "dashboard" && (
-            <Dashboard dashboard={dashboard} timeIdeal={timeIdeal} formacaoAtual={formacaoAtual} onNavigate={irParaEntrada} />
+            <Dashboard
+              dashboard={dashboard}
+              timeIdeal={timeIdeal}
+              banco={timeIdealBanco}
+              formacaoAtual={formacaoAtual}
+              setFormacaoAtual={setFormacaoAtual}
+              formacoesDisponiveis={formacoesDisponiveis}
+              onNavigate={irParaEntrada}
+            />
           )}
           {activeTab === "analise" && (
             <AnaliseElenco
@@ -261,8 +306,11 @@ function App() {
           )}
           {activeTab === "time" && (
             <TimeIdeal
-              timeIdeal={timeIdeal} formacaoAtual={formacaoAtual}
-              setFormacaoAtual={setFormacaoAtual} formacoesDisponiveis={formacoesDisponiveis}
+              timeIdeal={timeIdeal}
+              banco={timeIdealBanco}
+              formacaoAtual={formacaoAtual}
+              setFormacaoAtual={setFormacaoAtual}
+              formacoesDisponiveis={formacoesDisponiveis}
             />
           )}
           {activeTab === "entrada" && (
@@ -272,6 +320,8 @@ function App() {
               posicoesDisponiveis={posicoesDisponiveis} resultadosDisponiveis={resultadosDisponiveis}
               formacoesDisponiveis={formacoesDisponiveis} funcoesDisponiveis={funcoesDisponiveis} pesDisponiveis={pesDisponiveis}
               jogadorForm={jogadorForm} setJogadorForm={setJogadorForm} submitJogador={submitJogador}
+              jogadorEmEdicaoId={jogadorEmEdicaoId} iniciarEdicaoJogador={iniciarEdicaoJogador}
+              cancelarEdicaoJogador={cancelarEdicaoJogador} excluirJogadorLinha={excluirJogadorLinha}
               partidaForm={partidaForm} setPartidaForm={setPartidaForm} submitPartida={submitPartida}
               atuacaoForm={atuacaoForm} setAtuacaoForm={setAtuacaoForm} atuacaoEmEdicaoId={atuacaoEmEdicaoId}
               submitAtuacao={submitAtuacao} cancelarEdicaoAtuacao={cancelarEdicaoAtuacao}

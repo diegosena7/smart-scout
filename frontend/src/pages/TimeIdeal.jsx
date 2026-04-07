@@ -1,10 +1,10 @@
 import PitchView from "../components/PitchView";
 import DataTable from "../components/DataTable";
 
-export default function TimeIdeal({ timeIdeal, formacaoAtual, setFormacaoAtual, formacoesDisponiveis }) {
+export default function TimeIdeal({ timeIdeal, banco, formacaoAtual, setFormacaoAtual, formacoesDisponiveis }) {
   return (
     <div className="page-content">
-      <section className="card">
+<section className="card">
         <div className="card-header spaced">
           <div>
             <span className="card-title">Time ideal</span>
@@ -18,7 +18,7 @@ export default function TimeIdeal({ timeIdeal, formacaoAtual, setFormacaoAtual, 
         </div>
       </section>
       <section className="time-layout">
-        <PitchView items={timeIdeal} formacao={formacaoAtual} />
+        <PitchView items={timeIdeal} banco={banco} formacao={formacaoAtual} />
         <article className="card">
           <div className="card-header"><span className="card-title">Leitura da escalacao</span></div>
           <div className="card-body">

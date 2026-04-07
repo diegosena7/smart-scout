@@ -20,6 +20,13 @@ public class Atuacao {
     private String jogador;
     private String posicaoJogo;
 
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Presenca presenca = Presenca.JOGOU;
+
+    @Builder.Default
+    private Integer notaTecnico = null;
+
     @Builder.Default private int minutosJogados = 0;
     @Builder.Default private int gols = 0;
     @Builder.Default private int assistencias = 0;
@@ -38,4 +45,8 @@ public class Atuacao {
     @Builder.Default private int cartoesAmarelos = 0;
     @Builder.Default private int cartoesVermelhos = 0;
     @Builder.Default private int faltasCometidas = 0;
+
+    public enum Presenca {
+        JOGOU, PARCIAL, NAO_JOGOU
+    }
 }
